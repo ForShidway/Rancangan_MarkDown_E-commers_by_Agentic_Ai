@@ -1,112 +1,184 @@
-# SmartShop — Toko Online dengan Rekomendasi Produk Otomatis
+# SmartShop — Platform E-Commerce dengan Rekomendasi Produk AI
 
-> Platform e-commerce berbasis Laravel yang memberikan rekomendasi produk personal menggunakan kecerdasan buatan (Python + Machine Learning).
-
----
-
-## Tech Stack
-
-| Komponen | Teknologi |
-|----------|-----------|
-| 🌐 Backend | Laravel 11 + Laravel Breeze |
-| 🗄️ Database | MySQL 8.0 |
-| 🤖 AI Engine | Python 3.11 + FastAPI + Scikit-learn |
-| ⚡ Cache / Queue | Redis 7 |
-| 🐳 Container | Docker + Docker Compose |
+> **SmartShop** adalah platform e-commerce yang menyediakan pengalaman belanja personal dengan sistem rekomendasi produk otomatis berbasis kecerdasan buatan (Machine Learning).
 
 ---
 
-## Fitur Utama
+## Sistem yang Dibangun
 
-- ✅ **Autentikasi** — Register, Login, Logout (Laravel Breeze)
-- ✅ **2 Role** — User (pembeli) dan Admin (pengelola toko)
-- ✅ **CRUD Produk & Kategori** — Panel admin lengkap
-- ✅ **Keranjang & Checkout** — Alur belanja lengkap
-- ✅ **Riwayat Pesanan** — User bisa lihat semua pesanan
-- ✅ **Rating & Ulasan** — Feedback produk dari pembeli
-- ✅ **Rekomendasi AI** — "Mungkin Kamu Suka" berdasarkan riwayat belanja
-- ✅ **Dashboard Admin** — Statistik, grafik, produk terlaris
+SmartShop adalah aplikasi web e-commerce yang memungkinkan:
 
----
+### Untuk **Pembeli (User)**
+- Melihat dan mencari produk dari katalog toko
+- Menambahkan produk ke keranjang dan melakukan checkout
+- Mendapatkan rekomendasi produk personal ("Rekomendasi Untuk Kamu") berdasarkan riwayat belanja
+- Memberi rating dan ulasan pada produk yang telah dibeli
+- Melihat riwayat pesanan dan status pengiriman
 
-## Cara Menjalankan (Development)
-
-### 1. Clone & Setup
-
-```bash
-# Clone repository
-git clone <url-repo> smartshop
-cd smartshop
-
-# Copy environment file
-cp .env.example .env
-```
-
-### 2. Jalankan dengan Docker
-
-```bash
-# Build dan jalankan semua container
-docker-compose up -d --build
-
-# Masuk ke container Laravel
-docker-compose exec app bash
-
-# Setup aplikasi
-composer install
-php artisan key:generate
-php artisan migrate --seed
-php artisan storage:link
-```
-
-### 3. Akses Aplikasi
-
-| Layanan | URL |
-|---------|-----|
-| Aplikasi Web | http://localhost:8000 |
-| Python API | http://localhost:8001 |
-| phpMyAdmin (opsional) | http://localhost:8080 |
-
-### 4. Akun Default (Seeder)
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@smartshop.com | password |
-| User | user@smartshop.com | password |
+### Untuk **Admin (Pengelola Toko)**
+- Mengelola katalog produk (tambah, edit, hapus) beserta gambar
+- Mengelola kategori produk
+- Melihat dashboard dengan statistik penjualan dan grafik
+- Mengelola pesanan pelanggan dan mengubah status pengiriman
+- Memantau data pengguna yang terdaftar
 
 ---
 
-## Struktur Proyek
+## 🔄 Alur Kerja Sistem
+
+### **Alur Non-Rekomendasi** (Standard E-commerce)
 
 ```
-smartshop/
-├── agent/                  # Panduan untuk AI coding agent
-│   ├── agent-rules.md      # Aturan coding & arsitektur
-│   ├── context.md          # Konteks proyek lengkap
-│   └── tasks.md            # Daftar tugas per fase
+User Login → Lihat Produk → Pilih Produk → Tambah ke Keranjang 
+   ↓            ↓ (disimpan di database)
+Checkout → Konfirmasi Order → Order Tersimpan di Database
+```
+
+- Semua data (produk, kategori, order, user) disimpan di MySQL
+- Admin dapat mengelola inventory dan pesanan secara realtime
+
+### **Alur Rekomendasi** (AI-Powered)
+
+```
+User Belanja/Browsing → Events Tercatat:
+   • Produk apa yang dilihat (view_histories)
+   • Produk apa yang dicari (search_histories)
+   • Produk apa yang dibeli (purchase history)
+   
+   ↓
+   
+Recommendation Engine (Python) menerima user_id dari Laravel
+   • Load data riwayat user dari database MySQL
+   • Analisis preferensi menggunakan ML model (Scikit-learn)
+   • Hitung similarity antar produk
+   • Ranking top-N rekomendasi
+   
+   ↓
+   
+Cache hasil di Redis (TTL 60 menit)
+   
+   ↓
+   
+Display "Rekomendasi Untuk Kamu" di Homepage & Detail Produk
+```
+
+### **Admin Workflow**
+
+```
+Admin Login → Dashboard (Statistik & Grafik)
+   ↓
+   ├─ Kelola Produk (CRUD) → Upload Gambar → Simpan ke Database
+   ├─ Kelola Kategori (CRUD) → Definisi produk grouping
+   ├─ Kelola Order → Update Status → Notifikasi ke User
+   └─ Lihat User Management → Monitor aktivitas pembeli
+```
+
+---
+
+## Arsitektur Teknis
+
+### **Komponen Utama**
+
+```
+┌─────────────────────────────────────────────────┐
+│         Browser Client (User / Admin)           │
+│                   HTTP/HTTPS                    │
+└────────────────┬────────────────────────────────┘
+                 │
+┌────────────────▼──────────────────────────────┐
+│      Laravel 11 Backend (Port 8000)           │
+│  • Routes & Controllers                       │
+│  • Autentikasi & Authorization                │
+│  • Business Logic (Services)                  │
+│  • Database Queries (Repositories)            │
+└──┬──────────────────────────┬─────────────────┘
+   │                          │
+   │ (HTTP Call untuk AI)    │ (SQL Query)
+   │                          │
+   ▼                          ▼
+┌─────────────────┐    ┌──────────────┐
+│ Python FastAPI  │    │ MySQL 8.0    │
+│ (Port 8001)     │    │ Database     │
+│ • ML Model      │    │              │
+│ • Predict API   │    └──────────────┘
+│ • Cache Layer   │
+└─────────────────┘    Redis 7
+                       (Cache & Queue)
+```
+
+---
+
+## 💻 Teknologi yang Digunakan
+
+| Layer | Teknologi | Fungsi |
+|-------|-----------|--------|
+| **Frontend** | HTML5, CSS3, Blade Template | Rendering halaman web |
+| **Backend** | Laravel 11, Laravel Breeze | Framework web, autentikasi |
+| **Database** | MySQL 8.0 | Penyimpanan data terpusat |
+| **AI Engine** | Python 3.11, FastAPI | REST API untuk rekomendasi |
+| **ML Library** | Scikit-learn | Algoritma machine learning |
+| **Cache & Queue** | Redis 7 | Caching hasil rekomendasi, session |
+| **Container** | Docker, Docker Compose | Orchestration semua service |
+
+### **Alasan Pemilihan Teknologi**
+
+- **Laravel** → Framework web mature, built-in ORM (Eloquent), authorization system
+- **MySQL** → Database relasional solid, cocok untuk e-commerce
+- **Python + FastAPI** → FastAPI ringan & cepat, Scikit-learn library ML populer & mudah
+- **Redis** → In-memory cache untuk performa tinggi, cocok untuk rekomendasi yang sering diakses
+- **Docker** → Isolasi environment, scalability, mudah deployment di berbagai server
+
+---
+
+## Struktur Dokumentasi
+
+Dokumentasi rancangan proyek tersimpan dalam folder-folder berikut:
+
+```
+├── agent/                      # Panduan untuk Development
+│   ├── agent-rules.md          # Aturan coding & arsitektur
+│   ├── context.md              # Konteks proyek lengkap
+│   └── tasks.md                # Daftar tugas pengembangan per fase
 │
-├── docs/                   # Dokumentasi teknis
-│   ├── product.md          # Spesifikasi fitur & user stories
-│   ├── architecture.md     # Diagram arsitektur sistem
-│   ├── coding-standards.md # Standar penulisan kode
-│   ├── api-endpoints.md    # Daftar semua endpoint API
-│   └── decisions.md        # Catatan keputusan teknis
+├── docs/                       # Dokumentasi Teknis
+│   ├── product.md              # Spesifikasi fitur & user stories
+│   ├── architecture.md         # Diagram arsitektur & alur data
+│   ├── coding-standards.md     # Standar penulisan kode
+│   ├── api-endpoints.md        # Dokumentasi REST API endpoints
+│   └── decisions.md            # Catatan keputusan teknis
 │
-├── workflows/              # Alur kerja pengembangan
-│   ├── create-crud.md      # Cara buat fitur CRUD baru
-│   ├── create-feature.md   # Cara buat fitur kompleks
-│   ├── setup-docker.md     # Setup & troubleshoot Docker
-│   ├── setup-recommendation.md  # Setup Python ML engine
-│   └── bugfix.md           # Alur perbaikan bug
-│
-├── app/                    # Kode Laravel
-├── python/                 # Python Recommendation Engine
-├── docker/                 # Konfigurasi Docker
-├── database/               # Migration & Seeder
-├── routes/                 # Route web & API
-└── docker-compose.yml
+└── workflows/                  # Panduan Implementasi
+    ├── create-crud.md          # Cara implementasi fitur CRUD
+    ├── create-feature.md       # Cara implementasi fitur kompleks
+    ├── setup-docker.md         # Setup & troubleshoot Docker
+    ├── setup-recommendation.md # Setup engine rekomendasi Python
+    └── bugfix.md               # Alur perbaikan bug
 ```
 
+**Untuk detail lengkap**, buka file-file dokumentasi di atas sesuai kebutuhan Anda.
+
 ---
+
+### Akun Default (dari Seeder)
+
+- **Admin** → `admin@smartshop.com` / `password`
+- **User** → `user@smartshop.com` / `password`
+
+---
+
+## 📝 Fase Pengembangan
+
+1. **Fase 1** → Setup infrastruktur & database schema
+2. **Fase 2** → Sistem autentikasi & role management
+3. **Fase 3** → Panel admin (CRUD produk, kategori, order)
+4. **Fase 4** → Fitur user (browse, search, cart, checkout)
+5. **Fase 5** → Sistem rating & ulasan
+6. **Fase 6** → Engine rekomendasi AI & integrasi
+
+Lihat `agent/tasks.md` untuk detail task per fase.
+
+---
+
 
 ## Arsitektur Singkat
 
@@ -135,7 +207,3 @@ Untuk detail lengkap lihat [`docs/architecture.md`](docs/architecture.md).
 | [docs/decisions.md](docs/decisions.md) | Catatan keputusan teknis |
 
 ---
-
-## Lisensi
-
-MIT License — dibuat untuk kebutuhan akademik / pembelajaran.
